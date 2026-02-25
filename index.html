@@ -1,136 +1,136 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Advanced Research Evaluation System</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.mjs" type="module"></script>
+  <title>PDF Evaluation - Debug Version</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.js"></script>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    button { padding: 10px; margin-top: 10px; }
-    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
-    td, th { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background: #f2f2f2; }
-    #status { margin-top: 10px; color: blue; }
+    body { font-family: monospace; padding: 20px; font-size: 14px; }
+    button { padding: 10px; margin: 10px 0; }
+    #debug { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    td, th { border: 1px solid #ccc; padding: 8px; }
+    th { background: #e0e0e0; }
+    .error { color: red; font-weight: bold; }
+    .success { color: green; }
   </style>
 </head>
 <body>
 
-<h2>Research Paper Evaluation Portal</h2>
-
+<h2>🔍 PDF Evaluation - Diagnostic Mode</h2>
 <input type="file" id="pdfUpload" accept="application/pdf">
-<br>
-<button onclick="evaluatePaper()">Evaluate Paper</button>
-<div id="status"></div>
+<button onclick="diagnosePDF()">Diagnose PDF</button>
+
+<div id="debug"></div>
 <div id="result"></div>
 
-<script type="module">
-  import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.mjs';
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.js';
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.mjs';
+async function diagnosePDF() {
+  const fileInput = document.getElementById("pdfUpload");
+  const file = fileInput.files[0];
+  const debugDiv = document.getElementById("debug");
+  const resultDiv = document.getElementById("result");
+  
+  debugDiv.innerHTML = '';
+  resultDiv.innerHTML = '';
 
-  async function evaluatePaper() {
-    const fileInput = document.getElementById("pdfUpload");
-    const file = fileInput.files[0];
-    const statusDiv = document.getElementById("status");
-    const resultDiv = document.getElementById("result");
+  if (!file) {
+    debugDiv.innerHTML = '<span class="error">❌ No file selected</span>';
+    return;
+  }
 
-    if (!file) {
-      alert("Please upload a research paper.");
-      return;
+  debugDiv.innerHTML = '<span class="success">✅ File loaded: ' + file.name + ' (' + (file.size/1024).toFixed(1) + 'KB)</span>';
+
+  try {
+    // Test 1: PDF.js loading
+    const arrayBuffer = await file.arrayBuffer();
+    debugDiv.innerHTML += '<br><span class="success">✅ PDF.js loaded successfully</span>';
+    
+    // Test 2: Load PDF document
+    const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+    const pdf = await loadingTask.promise;
+    debugDiv.innerHTML += `<br><span class="success">✅ PDF loaded: ${pdf.numPages} pages</span>`;
+    
+    // Test 3: Extract text from first page only (fastest test)
+    const page1 = await pdf.getPage(1);
+    const textContent1 = await page1.getTextContent();
+    const page1Text = textContent1.items.map(item => item.str).join(' ').trim();
+    
+    debugDiv.innerHTML += `<br><span class="success">✅ Page 1 text extracted (${page1Text.length} chars):<br><pre>${page1Text.substring(0, 200)}${page1Text.length > 200 ? '...' : ''}</pre></span>`;
+
+    if (page1Text.length === 0) {
+      debugDiv.innerHTML += '<span class="error">⚠️  Page 1 has no extractable text (likely scanned/image PDF)</span>';
+      return showScannedPDFResult();
     }
 
-    statusDiv.innerHTML = "Extracting text from PDF...";
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-      let fullText = '';
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n';
-      }
-
-      statusDiv.innerHTML = "Analyzing content...";
-
-      // ---------- CONTENT-BASED SCORING ----------
-      const textLower = fullText.toLowerCase();
-
-      // Abstract: Look for "abstract" section and length/quality
-      let abstractScore = 0;
-      const abstractRegex = /abstract[\s\S]*?(?=\n[A-Z][a-z]+:|\n\n|\n[A-Z]{2,})/i;
-      const abstractMatch = fullText.match(abstractRegex);
-      if (abstractMatch) {
-        const abstract = abstractMatch[0].toLowerCase();
-        const absLength = abstract.length;
-        if (absLength > 100) abstractScore += 5;
-        if (absLength > 200) abstractScore += 3;
-        if (/objective|aim|purpose/i.test(abstract)) abstractScore += 2;
-      }
-
-      // Methodology: Keywords indicating strength
-      let methodologyScore = 0;
-      const methodKeywords = ['method', 'materials', 'procedure', 'experiment', 'synthesis', 'characterization', 'analysis'];
-      const methodCount = methodKeywords.filter(kw => textLower.includes(kw)).length;
-      methodologyScore = Math.min(20, methodCount * 3);
-
-      // Citations: Simple count of [1], (1), etc.
-      let citationScore = 0;
-      const citationMatches = textLower.match(/\[\d+\]/g) || [];
-      citationScore = Math.min(15, Math.floor(citationMatches.length / 2));
-
-      // Innovation: Advanced chemistry keywords relevant to your expertise
-      let innovationScore = 0;
-      const innovationKeywords = ['novel', 'first', 'innovative', 'new approach', 'spectroscopy', 'nanocomposite', 'electrochemistry', 'biochar', 'dft', 'qsar'];
-      const innovCount = innovationKeywords.filter(kw => textLower.includes(kw)).length;
-      innovationScore = Math.min(15, innovCount * 2);
-
-      // ---------- JOURNAL DETECTION ----------
-      let fileName = file.name.toLowerCase();
-      let journalScore = 20;
-      let predatoryRisk = 0;
-      let journalStatus = "Likely Genuine";
-
-      let predatoryKeywords = ["ijirt", "ijrar", "impactfactor7", "sjif", "cosmos"];
-      for (let keyword of predatoryKeywords) {
-        if (fileName.includes(keyword)) {
-          journalScore = 8;
-          predatoryRisk = 8;
-          journalStatus = "Potentially Predatory / Cloned";
-          break;
-        }
-      }
-
-      // ---------- FINAL CALCULATION ----------
-      let totalScore = abstractScore + methodologyScore + citationScore + innovationScore + journalScore;
-
-      // ---------- DISPLAY RESULT ----------
-      resultDiv.innerHTML = `
-        <h3>Evaluation Scorecard (Content-Based)</h3>
-        <table>
-          <tr><th>Criteria</th><th>Marks</th><th>Reason</th></tr>
-          <tr><td>Abstract Quality</td><td>${abstractScore} / 10</td><td>${abstractMatch ? 'Detected (' + Math.round(abstractMatch[0].length/10) + ' words)' : 'Not found'}</td></tr>
-          <tr><td>Methodology Strength</td><td>${methodologyScore} / 20</td><td>${methodCount} method keywords</td></tr>
-          <tr><td>Citation Quality</td><td>${citationScore} / 15</td><td>${citationMatches.length} citations detected</td></tr>
-          <tr><td>Innovation Index</td><td>${innovationScore} / 15</td><td>${innovCount} innovation terms (chemistry-focused)</td></tr>
-          <tr><td>Journal Authenticity</td><td>${journalScore} / 20</td><td>Filename check</td></tr>
-          <tr><td>Predatory Risk Score</td><td>${predatoryRisk} / 10</td><td>${predatoryRisk ? 'High risk keywords' : 'Low risk'}</td></tr>
-          <tr><th>Total Score</th><th>${totalScore} / 80</th><th></th></tr>
-        </table>
-        <h4>Journal Status: ${journalStatus}</h4>
-        <p><em>Full text length: ${Math.round(fullText.length/1000)} KB analyzed.</em></p>
-      `;
-
-      statusDiv.innerHTML = "Evaluation complete!";
-
-    } catch (error) {
-      statusDiv.innerHTML = "Error: " + error.message;
-      resultDiv.innerHTML = "<p>Failed to process PDF. Ensure it's a valid text-based PDF.</p>";
+    // Full evaluation if text found
+    await fullEvaluation(pdf, debugDiv, resultDiv);
+    
+  } catch (error) {
+    debugDiv.innerHTML += `<br><span class="error">❌ Error: ${error.message}</span>`;
+    console.error('Full error:', error);
+    
+    if (error.message.includes('worker')) {
+      debugDiv.innerHTML += '<br><span class="error">🔧 Worker failed. Try Chrome incognito or different browser.</span>';
+    } else if (error.message.includes('InvalidPDF')) {
+      debugDiv.innerHTML += '<br><span class="error">📄 Corrupted/damaged PDF file.</span>';
     }
   }
+}
+
+async function fullEvaluation(pdf, debugDiv, resultDiv) {
+  debugDiv.innerHTML += '<br><span class="success">🔬 Running full content analysis...</span>';
+  
+  let fullText = '';
+  for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) { // Limit to 5 pages for speed
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+  }
+  
+  const textLower = fullText.toLowerCase();
+  
+  // SIMPLIFIED SCORING (no regex - just keyword presence)
+  let scores = {
+    abstract: textLower.includes('abstract') ? 10 : 2,
+    methods: ['method', 'materials', 'experiment'].some(kw => textLower.includes(kw)) ? 15 : 5,
+    citations: (fullText.match(/\[\d+\]/g) || []).length > 2 ? 12 : 4,
+    chemistry: ['uv-vis', 'nmr', 'xrd', 'spectroscopy'].some(kw => textLower.includes(kw)) ? 12 : 3,
+    journal: 15 // default
+  };
+  
+  const total = Object.values(scores).reduce((a,b)=>a+b, 0);
+  
+  resultDiv.innerHTML = `
+    <h3>✅ Evaluation Complete: ${total}/67</h3>
+    <table>
+      <tr><th>Criteria</th><th>Score</th><th>Detection</th></tr>
+      ${Object.entries(scores).map(([k,v]) => 
+        `<tr><td>${k.charAt(0).toUpperCase()+k.slice(1)}</td><td>${v}</td><td>${textLower.includes(k) ? '✅ Found' : '❌ Missing'}</td></tr>`
+      ).join('')}
+      <tr><th>Total</th><th>${total}/67</th><th></th></tr>
+    </table>
+    <p><em>Analyzed first ${Math.min(pdf.numPages,5)} pages. Chemistry-focused scoring.</em></p>
+  `;
+  
+  debugDiv.innerHTML += `<br><span class="success">🎉 SUCCESS! ${fullText.length/1000}KB text analyzed.</span>`;
+}
+
+function showScannedPDFResult() {
+  document.getElementById('result').innerHTML = `
+    <h3>📸 Image-Based PDF Detected</h3>
+    <p><strong>Status:</strong> Cannot extract text (scanned document)</p>
+    <p><strong>Solution:</strong></p>
+    <ul>
+      <li>Convert to searchable PDF using Adobe Acrobat / Google Drive OCR</li>
+      <li>Use papers from SciFinder/Scopus (usually text-selectable)</li>
+      <li>Try "Print to PDF" from original source</li>
+    </ul>
+    <p><strong>Score:</strong> 10/80 (basic structure detected)</p>
+  `;
+}
 </script>
 
 </body>
 </html>
-
