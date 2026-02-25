@@ -1,1 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Research Evaluation & Journal Risk Detection System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
 
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f6f9;
+            padding: 30px;
+        }
+        h1 {
+            color: #1f3c88;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #1f3c88;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #paperResult, #journalResult {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f0fe;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Automated Research Paper Evaluation & Journal Risk Detection</h1>
+
+<div class="container">
+
+    <h3>Upload Research Paper (PDF)</h3>
+    <input type="file" id="pdfUpload" accept="application/pdf">
+    <br><br>
+    <button onclick="analyzePDF()">Analyze Paper</button>
+
+    <div id="paperResult"></div>
+    <div id="journalResult"></div>
+
+</div>
+
+<script>
+
+async function analyzePDF() {
+
+    const fileInput = document.getElementById('pdfUpload');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("Please upload a PDF file.");
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = async function() {
+
+        const typedarray = new Uint8Array(this.result);
+        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+
+        let fullText = "";
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const textItems = textContent.items.map(item => item.str);
+            fullText += textItems.join(" ");
+        }
+
+        evaluatePaper(fullText);
+        autoJournalDetection(fullText);
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+
+function evaluatePaper(text) {
+
+    let score = 0;
+    let wordCount = text.split(/\s+/).length;
+
+    if (text.includes("Abstract")) score += 5;
+    if (text.includes("Methodology")) score += 5;
+    if (text.includes("Results")) score += 5;
+    if (text.includes("References")) score += 5;
+
+    if (wordCount >= 3000) score += 10;
+
+    let refCount = (text.match(/\[\d+\]/g) || []).length;
+    if (refCount >= 10) score += 5;
+
+    let keywords = ["innovation", "analysis", "experimental", "synthesis"];
+    keywords.forEach(word => {
+        let count = (text.toLowerCase().match(new RegExp(word, "g")) || []).length;
+        if (count > 5) score += 2;
+    });
+
+    let grade = "Needs Improvement";
+    if (score >= 35) grade = "A+ (Outstanding)";
+    else if (score >= 30) grade = "A (Excellent)";
+    else if (score >= 25) grade = "B (Very Good)";
+
+    document.getElementById("paperResult").innerHTML =
+        "<h3>Research Paper Scorecard</h3>" +
+        "Word Count: " + wordCount + "<br>" +
+        "Reference Count: " + refCount + "<br><br>" +
+        "<b>Total Score: " + score + " / 50</b><br>" +
+        "<b>Grade: " + grade + "</b>";
+}
+
+
+function autoJournalDetection(text) {
+
+    let issnPattern = /\d{4}-\d{3}[\dX]/;
+    let emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/;
+    let urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/;
+
+    let issnMatch = text.match(issnPattern);
+    let emailMatch = text.match(emailPattern);
+    let urlMatch = text.match(urlPattern);
+
+    let issn = issnMatch ? issnMatch[0] : "Not Detected";
+    let email = emailMatch ? emailMatch[0] : "Not Detected";
+    let website = urlMatch ? urlMatch[0] : "Not Detected";
+
+    let firstPart = text.substring(0, 1000);
+    let lines = firstPart.split(/[\n\.]/);
+
+    let journalName = "Not Detected";
+
+    for (let line of lines) {
+        if (line.toLowerCase().includes("journal")) {
+            journalName = line.trim();
+            break;
+        }
+    }
+
+    let riskScore = 0;
+    let warnings = [];
+
+    if (issn === "Not Detected") {
+        riskScore += 3;
+        warnings.push("ISSN not found.");
+    }
+
+    if (email.includes("@gmail") || email.includes("@yahoo")) {
+        riskScore += 2;
+        warnings.push("Non-institutional email detected.");
+    }
+
+    if (website.includes("blogspot") || website.includes("wordpress") || website.includes("wix")) {
+        riskScore += 3;
+        warnings.push("Journal hosted on free domain.");
+    }
+
+    let riskyWords = ["rapid", "fast", "global", "worldwide"];
+    riskyWords.forEach(word => {
+        if (journalName.toLowerCase().includes(word)) {
+            riskScore += 1;
+        }
+    });
+
+    let riskLevel = "LOW RISK";
+    let color = "green";
+
+    if (riskScore >= 6) {
+        riskLevel = "HIGH RISK (Likely Predatory)";
+        color = "red";
+    }
+    else if (riskScore >= 3) {
+        riskLevel = "MODERATE RISK (Verify Manually)";
+        color = "orange";
+    }
+
+    document.getElementById("journalResult").innerHTML =
+        "<h3>Journal Metadata Detection</h3>" +
+        "Journal Name: " + journalName + "<br>" +
+        "ISSN: " + issn + "<br>" +
+        "Website: " + website + "<br>" +
+        "Email: " + email + "<br><br>" +
+        "<h3>Predatory Risk Assessment</h3>" +
+        "Risk Score: " + riskScore + "<br>" +
+        "<b style='color:" + color + "'>" + riskLevel + "</b><br><br>" +
+        "<b>Warnings:</b><br>" + (warnings.length ? warnings.join("<br>") : "No major red flags detected.");
+}
+
+</script>
+
+</body>
+</html>
