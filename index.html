@@ -2,12 +2,14 @@
 <html>
 <head>
   <title>Advanced Research Evaluation System</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.mjs" type="module"></script>
   <style>
     body { font-family: Arial; padding: 20px; }
     button { padding: 10px; margin-top: 10px; }
     table { border-collapse: collapse; margin-top: 20px; width: 100%; }
     td, th { border: 1px solid #ccc; padding: 8px; text-align: left; }
     th { background: #f2f2f2; }
+    #status { margin-top: 10px; color: blue; }
   </style>
 </head>
 <body>
@@ -17,72 +19,118 @@
 <input type="file" id="pdfUpload" accept="application/pdf">
 <br>
 <button onclick="evaluatePaper()">Evaluate Paper</button>
-
+<div id="status"></div>
 <div id="result"></div>
 
-<script>
-function evaluatePaper() {
+<script type="module">
+  import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.mjs';
 
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.mjs';
+
+  async function evaluatePaper() {
     const fileInput = document.getElementById("pdfUpload");
     const file = fileInput.files[0];
+    const statusDiv = document.getElementById("status");
+    const resultDiv = document.getElementById("result");
 
     if (!file) {
-        alert("Please upload a research paper.");
-        return;
+      alert("Please upload a research paper.");
+      return;
     }
 
-    let textLength = file.size; // Simulated metric
+    statusDiv.innerHTML = "Extracting text from PDF...";
 
-    // ---------- RULE BASED SCORING ----------
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      let fullText = '';
 
-    let abstractScore = (textLength > 500000) ? 8 : 5;
-    let methodologyScore = (textLength > 800000) ? 18 : 12;
-    let citationScore = (textLength > 600000) ? 14 : 9;
-    let innovationScore = (textLength > 900000) ? 15 : 10;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
 
-    // ---------- JOURNAL DETECTION ----------
+      statusDiv.innerHTML = "Analyzing content...";
 
-    let fileName = file.name.toLowerCase();
+      // ---------- CONTENT-BASED SCORING ----------
+      const textLower = fullText.toLowerCase();
 
-    let journalScore = 20;
-    let predatoryRisk = 0;
-    let journalStatus = "Likely Genuine";
+      // Abstract: Look for "abstract" section and length/quality
+      let abstractScore = 0;
+      const abstractRegex = /abstract[\s\S]*?(?=\n[A-Z][a-z]+:|\n\n|\n[A-Z]{2,})/i;
+      const abstractMatch = fullText.match(abstractRegex);
+      if (abstractMatch) {
+        const abstract = abstractMatch[0].toLowerCase();
+        const absLength = abstract.length;
+        if (absLength > 100) abstractScore += 5;
+        if (absLength > 200) abstractScore += 3;
+        if (/objective|aim|purpose/i.test(abstract)) abstractScore += 2;
+      }
 
-    let predatoryKeywords = ["ijirt", "ijrar", "impactfactor7", "sjif", "cosmos"];
+      // Methodology: Keywords indicating strength
+      let methodologyScore = 0;
+      const methodKeywords = ['method', 'materials', 'procedure', 'experiment', 'synthesis', 'characterization', 'analysis'];
+      const methodCount = methodKeywords.filter(kw => textLower.includes(kw)).length;
+      methodologyScore = Math.min(20, methodCount * 3);
 
-    for (let keyword of predatoryKeywords) {
+      // Citations: Simple count of [1], (1), etc.
+      let citationScore = 0;
+      const citationMatches = textLower.match(/\[\d+\]/g) || [];
+      citationScore = Math.min(15, Math.floor(citationMatches.length / 2));
+
+      // Innovation: Advanced chemistry keywords relevant to your expertise
+      let innovationScore = 0;
+      const innovationKeywords = ['novel', 'first', 'innovative', 'new approach', 'spectroscopy', 'nanocomposite', 'electrochemistry', 'biochar', 'dft', 'qsar'];
+      const innovCount = innovationKeywords.filter(kw => textLower.includes(kw)).length;
+      innovationScore = Math.min(15, innovCount * 2);
+
+      // ---------- JOURNAL DETECTION ----------
+      let fileName = file.name.toLowerCase();
+      let journalScore = 20;
+      let predatoryRisk = 0;
+      let journalStatus = "Likely Genuine";
+
+      let predatoryKeywords = ["ijirt", "ijrar", "impactfactor7", "sjif", "cosmos"];
+      for (let keyword of predatoryKeywords) {
         if (fileName.includes(keyword)) {
-            journalScore = 8;
-            predatoryRisk = 8;
-            journalStatus = "Potentially Predatory / Cloned";
+          journalScore = 8;
+          predatoryRisk = 8;
+          journalStatus = "Potentially Predatory / Cloned";
+          break;
         }
-    }
+      }
 
-    // ---------- FINAL CALCULATION ----------
+      // ---------- FINAL CALCULATION ----------
+      let totalScore = abstractScore + methodologyScore + citationScore + innovationScore + journalScore;
 
-    let totalScore = abstractScore + methodologyScore + citationScore +
-                     innovationScore + journalScore;
-
-    // ---------- DISPLAY RESULT ----------
-
-    document.getElementById("result").innerHTML = `
-        <h3>Evaluation Scorecard</h3>
-
+      // ---------- DISPLAY RESULT ----------
+      resultDiv.innerHTML = `
+        <h3>Evaluation Scorecard (Content-Based)</h3>
         <table>
-            <tr><th>Criteria</th><th>Marks</th></tr>
-            <tr><td>Abstract Quality</td><td>${abstractScore} / 10</td></tr>
-            <tr><td>Methodology Strength</td><td>${methodologyScore} / 20</td></tr>
-            <tr><td>Citation Quality</td><td>${citationScore} / 15</td></tr>
-            <tr><td>Innovation Index</td><td>${innovationScore} / 15</td></tr>
-            <tr><td>Journal Authenticity</td><td>${journalScore} / 20</td></tr>
-            <tr><td>Predatory Risk Score</td><td>${predatoryRisk} / 10</td></tr>
-            <tr><th>Total Score</th><th>${totalScore} / 80</th></tr>
+          <tr><th>Criteria</th><th>Marks</th><th>Reason</th></tr>
+          <tr><td>Abstract Quality</td><td>${abstractScore} / 10</td><td>${abstractMatch ? 'Detected (' + Math.round(abstractMatch[0].length/10) + ' words)' : 'Not found'}</td></tr>
+          <tr><td>Methodology Strength</td><td>${methodologyScore} / 20</td><td>${methodCount} method keywords</td></tr>
+          <tr><td>Citation Quality</td><td>${citationScore} / 15</td><td>${citationMatches.length} citations detected</td></tr>
+          <tr><td>Innovation Index</td><td>${innovationScore} / 15</td><td>${innovCount} innovation terms (chemistry-focused)</td></tr>
+          <tr><td>Journal Authenticity</td><td>${journalScore} / 20</td><td>Filename check</td></tr>
+          <tr><td>Predatory Risk Score</td><td>${predatoryRisk} / 10</td><td>${predatoryRisk ? 'High risk keywords' : 'Low risk'}</td></tr>
+          <tr><th>Total Score</th><th>${totalScore} / 80</th><th></th></tr>
         </table>
-
         <h4>Journal Status: ${journalStatus}</h4>
-    `;
-}
+        <p><em>Full text length: ${Math.round(fullText.length/1000)} KB analyzed.</em></p>
+      `;
+
+      statusDiv.innerHTML = "Evaluation complete!";
+
+    } catch (error) {
+      statusDiv.innerHTML = "Error: " + error.message;
+      resultDiv.innerHTML = "<p>Failed to process PDF. Ensure it's a valid text-based PDF.</p>";
+    }
+  }
 </script>
 
 </body>
 </html>
+
