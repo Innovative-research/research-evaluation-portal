@@ -1,136 +1,146 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PDF Evaluation - Debug Version</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.js"></script>
-  <style>
-    body { font-family: monospace; padding: 20px; font-size: 14px; }
-    button { padding: 10px; margin: 10px 0; }
-    #debug { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    td, th { border: 1px solid #ccc; padding: 8px; }
-    th { background: #e0e0e0; }
-    .error { color: red; font-weight: bold; }
-    .success { color: green; }
-  </style>
+    <title>AI Research Paper Evaluator (100 pts)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        header { background: #1f3c88; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }
+        .container { width: 90%; max-width: 1000px; margin: auto; background: white; padding: 30px; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 0 0 10px 10px; }
+        h2 { color: #1f3c88; }
+        #pdfUpload { padding: 10px; border: 2px dashed #1f3c88; border-radius: 5px; width: 100%; margin: 10px 0; }
+        button { background: #1f3c88; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #163172; }
+        #status { margin: 20px 0; padding: 10px; background: #e8f0fe; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #1f3c88; color: white; }
+        .good { background: #d4edda; }
+        .warn { background: #fff3cd; }
+        .bad { background: #f8d7da; }
+        #result { display: none; }
+        footer { text-align: center; padding: 20px; color: #666; }
+    </style>
 </head>
 <body>
+<header>
+    <h1>🧪 AI Research Paper Evaluator</h1>
+    <p>M.Sc Chemistry – Auto-Scorecard /100 | Plagiarism + Novelty + H-Index Detection</p>
+</header>
 
-<h2>🔍 PDF Evaluation - Diagnostic Mode</h2>
-<input type="file" id="pdfUpload" accept="application/pdf">
-<button onclick="diagnosePDF()">Diagnose PDF</button>
+<div class="container">
+    <h2>Upload Journal Paper (.pdf)</h2>
+    <input type="file" id="pdfUpload" accept="application/pdf">
+    <button onclick="evaluatePaper()">🤖 Evaluate Paper (100 pts)</button>
+    
+    <div id="status"></div>
+    <div id="result"></div>
+</div>
 
-<div id="debug"></div>
-<div id="result"></div>
+<footer>© 2026 Monika Kannan | Chemistry Research AI Evaluator</footer>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.js';
 
-async function diagnosePDF() {
-  const fileInput = document.getElementById("pdfUpload");
-  const file = fileInput.files[0];
-  const debugDiv = document.getElementById("debug");
-  const resultDiv = document.getElementById("result");
-  
-  debugDiv.innerHTML = '';
-  resultDiv.innerHTML = '';
-
-  if (!file) {
-    debugDiv.innerHTML = '<span class="error">❌ No file selected</span>';
-    return;
-  }
-
-  debugDiv.innerHTML = '<span class="success">✅ File loaded: ' + file.name + ' (' + (file.size/1024).toFixed(1) + 'KB)</span>';
-
-  try {
-    // Test 1: PDF.js loading
-    const arrayBuffer = await file.arrayBuffer();
-    debugDiv.innerHTML += '<br><span class="success">✅ PDF.js loaded successfully</span>';
+async function evaluatePaper() {
+    const fileInput = document.getElementById("pdfUpload");
+    const file = fileInput.files[0];
+    const status = document.getElementById("status");
+    const result = document.getElementById("result");
     
-    // Test 2: Load PDF document
-    const loadingTask = pdfjsLib.getDocument(arrayBuffer);
-    const pdf = await loadingTask.promise;
-    debugDiv.innerHTML += `<br><span class="success">✅ PDF loaded: ${pdf.numPages} pages</span>`;
+    if (!file) return status.innerHTML = '<span style="color:red">❌ Upload PDF first</span>';
     
-    // Test 3: Extract text from first page only (fastest test)
-    const page1 = await pdf.getPage(1);
-    const textContent1 = await page1.getTextContent();
-    const page1Text = textContent1.items.map(item => item.str).join(' ').trim();
+    status.innerHTML = '📄 Extracting text...';
+    result.style.display = 'none';
     
-    debugDiv.innerHTML += `<br><span class="success">✅ Page 1 text extracted (${page1Text.length} chars):<br><pre>${page1Text.substring(0, 200)}${page1Text.length > 200 ? '...' : ''}</pre></span>`;
-
-    if (page1Text.length === 0) {
-      debugDiv.innerHTML += '<span class="error">⚠️  Page 1 has no extractable text (likely scanned/image PDF)</span>';
-      return showScannedPDFResult();
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        let fullText = '';
+        
+        // Extract first 10 pages (fast)
+        for (let i = 1; i <= Math.min(10, pdf.numPages); i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+        }
+        
+        const textLower = fullText.toLowerCase();
+        status.innerHTML = '🤖 AI Analyzing: Plagiarism/Novelty/Citations...';
+        
+        // ========== 100 PT SCORING ==========
+        
+        // 1. Abstract (15 pts)
+        let abstractScore = 0;
+        const absMatch = fullText.match(/abstract[:\s]*([\s\S]*?)(?=introduction|\n1\s|methods|\n\n[A-Z]{3,})/i);
+        if (absMatch) {
+            const absLen = absMatch[1].trim().split(/\s+/).length;
+            abstractScore = absLen > 150 ? 15 : absLen > 100 ? 12 : 8;
+        }
+        
+        // 2. Methodology (20 pts) - Chemistry keywords
+        const methodKeywords = ['methodology', 'materials', 'synthesis', 'characterization', 'procedure', 'experiment', 'uv-vis', 'xrd', 'ftir', 'nmr'];
+        const methodHits = methodKeywords.filter(kw => textLower.includes(kw)).length;
+        let methodologyScore = Math.min(20, methodHits * 2);
+        
+        // 3. Citations (15 pts)
+        const citations = (fullText.match(/\[[0-9,]+\]/g) || []).length + (fullText.match(/\(20[0-9]{2}\)/g) || []).length;
+        let citationScore = Math.min(15, Math.floor(citations / 3));
+        
+        // 4. Novelty (20 pts) - Unique terms
+        const noveltyKeywords = ['novel', 'first', 'innovative', 'new approach', 'unprecedented', 'nanocomposite', 'doped zno', 'biochar', 'electrocatalytic'];
+        const noveltyHits = noveltyKeywords.filter(kw => textLower.includes(kw)).length;
+        let noveltyScore = Math.min(20, noveltyHits * 2);
+        
+        // 5. Plagiarism Risk (15 pts) - Repetitive/simple text
+        const uniqueWords = new Set(fullText.toLowerCase().split(/\W+/).filter(w => w.length > 4));
+        const plagiarismRisk = Math.min(15, Math.floor((uniqueWords.size / 150) * 15)); // Diverse vocab = low risk
+        
+        // 6. Journal Quality (10 pts) - DOI + Filename
+        let doiScore = 0;
+        const doiMatch = fullText.match(/10\.[0-9]{4,}(?:\.[0-9]+)*/g) || file.name.match(/10\.[0-9]{4,}/);
+        if (doiMatch) doiScore = 8;
+        
+        const journalName = file.name.toLowerCase();
+        let journalScore = doiScore;
+        if (/nature|science|acs|elsevier|rsc|wiley/i.test(journalName)) journalScore += 2;
+        
+        // 7. H-Index Proxy (5 pts) - Author prominence hints
+        let hIndexScore = textLower.includes('h-index') || textLower.includes('citations') ? 5 : 0;
+        
+        const totalScore = abstractScore + methodologyScore + citationScore + noveltyScore + plagiarismRisk + journalScore + hIndexScore;
+        
+        // Color coding
+        const getClass = (score, max) => {
+            const pct = score / max * 100;
+            if (pct >= 80) return 'good';
+            if (pct >= 60) return 'warn';
+            return 'bad';
+        };
+        
+        result.innerHTML = `
+            <h3>📊 AI Scorecard: ${Math.round(totalScore)} / 100</h3>
+            <table>
+                <tr><th>Criteria</th><th>Score</th><th>Max</th><th>Analysis</th></tr>
+                <tr class="${getClass(abstractScore,15)}"><td>Abstract Strength</td><td>${abstractScore}</td><td>15</td><td>${absMatch ? `~${Math.round(absMatch[1].trim().split(/\s+/).length)} words` : 'Missing'}</td></tr>
+                <tr class="${getClass(methodologyScore,20)}"><td>Methodology</td><td>${methodologyScore}</td><td>20</td><td>${methodHits} chem keywords (UV-Vis, XRD...)</td></tr>
+                <tr class="${getClass(citationScore,15)}"><td>Citations</td><td>${citationScore}</td><td>15</td><td>${citations} detected</td></tr>
+                <tr class="${getClass(noveltyScore,20)}"><td>Novelty</td><td>${noveltyScore}</td><td>20</td><td>${noveltyHits} unique terms</td></tr>
+                <tr class="${getClass(plagiarismRisk,15)}"><td>Plagiarism Risk</td><td>${plagiarismRisk}</td><td>15</td><td>${uniqueWords.size} unique words (Low risk=High score)</td></tr>
+                <tr class="${getClass(journalScore,10)}"><td>Journal Quality</td><td>${journalScore}</td><td>10</td><td>${doiMatch ? 'DOI Found' : 'No DOI'}</td></tr>
+                <tr class="${getClass(hIndexScore,5)}"><td>H-Index Proxy</td><td>${hIndexScore}</td><td>5</td><td>${hIndexScore ? 'Author metrics mentioned' : 'Not found'}</td></tr>
+                <tr><th>Total</th><th>${Math.round(totalScore)}</th><th>100</th><th>${totalScore >= 80 ? 'Excellent' : totalScore >= 60 ? 'Good' : 'Needs Work'}</th></tr>
+            </table>
+            <p><em>Analyzed first 10 pages | Chemistry-optimized (ZnO, biochar, spectroscopy) | Plagiarism via vocab diversity</em></p>
+        `;
+        result.style.display = 'block';
+        status.innerHTML = '✅ Complete!';
+        
+    } catch (error) {
+        status.innerHTML = `<span style="color:red">❌ Error: ${error.message}<br>Try text PDF (not scanned). Check F12 console.</span>`;
+        console.error(error);
     }
-
-    // Full evaluation if text found
-    await fullEvaluation(pdf, debugDiv, resultDiv);
-    
-  } catch (error) {
-    debugDiv.innerHTML += `<br><span class="error">❌ Error: ${error.message}</span>`;
-    console.error('Full error:', error);
-    
-    if (error.message.includes('worker')) {
-      debugDiv.innerHTML += '<br><span class="error">🔧 Worker failed. Try Chrome incognito or different browser.</span>';
-    } else if (error.message.includes('InvalidPDF')) {
-      debugDiv.innerHTML += '<br><span class="error">📄 Corrupted/damaged PDF file.</span>';
-    }
-  }
-}
-
-async function fullEvaluation(pdf, debugDiv, resultDiv) {
-  debugDiv.innerHTML += '<br><span class="success">🔬 Running full content analysis...</span>';
-  
-  let fullText = '';
-  for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) { // Limit to 5 pages for speed
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    fullText += textContent.items.map(item => item.str).join(' ') + '\n';
-  }
-  
-  const textLower = fullText.toLowerCase();
-  
-  // SIMPLIFIED SCORING (no regex - just keyword presence)
-  let scores = {
-    abstract: textLower.includes('abstract') ? 10 : 2,
-    methods: ['method', 'materials', 'experiment'].some(kw => textLower.includes(kw)) ? 15 : 5,
-    citations: (fullText.match(/\[\d+\]/g) || []).length > 2 ? 12 : 4,
-    chemistry: ['uv-vis', 'nmr', 'xrd', 'spectroscopy'].some(kw => textLower.includes(kw)) ? 12 : 3,
-    journal: 15 // default
-  };
-  
-  const total = Object.values(scores).reduce((a,b)=>a+b, 0);
-  
-  resultDiv.innerHTML = `
-    <h3>✅ Evaluation Complete: ${total}/67</h3>
-    <table>
-      <tr><th>Criteria</th><th>Score</th><th>Detection</th></tr>
-      ${Object.entries(scores).map(([k,v]) => 
-        `<tr><td>${k.charAt(0).toUpperCase()+k.slice(1)}</td><td>${v}</td><td>${textLower.includes(k) ? '✅ Found' : '❌ Missing'}</td></tr>`
-      ).join('')}
-      <tr><th>Total</th><th>${total}/67</th><th></th></tr>
-    </table>
-    <p><em>Analyzed first ${Math.min(pdf.numPages,5)} pages. Chemistry-focused scoring.</em></p>
-  `;
-  
-  debugDiv.innerHTML += `<br><span class="success">🎉 SUCCESS! ${fullText.length/1000}KB text analyzed.</span>`;
-}
-
-function showScannedPDFResult() {
-  document.getElementById('result').innerHTML = `
-    <h3>📸 Image-Based PDF Detected</h3>
-    <p><strong>Status:</strong> Cannot extract text (scanned document)</p>
-    <p><strong>Solution:</strong></p>
-    <ul>
-      <li>Convert to searchable PDF using Adobe Acrobat / Google Drive OCR</li>
-      <li>Use papers from SciFinder/Scopus (usually text-selectable)</li>
-      <li>Try "Print to PDF" from original source</li>
-    </ul>
-    <p><strong>Score:</strong> 10/80 (basic structure detected)</p>
-  `;
 }
 </script>
-
 </body>
 </html>
