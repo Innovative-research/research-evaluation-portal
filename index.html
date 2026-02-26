@@ -1,156 +1,187 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>🧪 AI Research Paper Evaluator (FIXED)</title>
-    <!-- FIXED: Use stable v3.11 legacy build -->
+    <title>🎓 Advanced Chemistry Paper Evaluator v2.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
-        header { background: #1f3c88; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }
-        .container { width: 90%; max-width: 1000px; margin: auto; background: white; padding: 30px; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 0 0 10px 10px; }
-        h2 { color: #1f3c88; }
-        #pdfUpload { padding: 10px; border: 2px dashed #1f3c88; border-radius: 5px; width: 100%; margin: 10px 0; }
-        button { background: #1f3c88; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        button:hover { background: #163172; }
-        #status { margin: 20px 0; padding: 10px; background: #e8f0fe; border-radius: 5px; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background: #1f3c88; color: white; }
-        .good { background: #d4edda; }
-        .warn { background: #fff3cd; }
-        .bad { background: #f8d7da; }
-        #result { display: none; animation: fadeIn 0.5s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        footer { text-align: center; padding: 20px; color: #666; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); margin: 0; padding: 20px; }
+        header { background: linear-gradient(90deg, #1f3c88, #2a5298); color: white; padding: 25px; text-align: center; border-radius: 15px; box-shadow: 0 8px 32px rgba(31,60,136,0.3); }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 35px; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        h1 { margin: 0; font-size: 2.2em; }
+        h2 { color: #1f3c88; border-bottom: 3px solid #e8f0fe; padding-bottom: 10px; }
+        #pdfUpload { border: 3px dashed #1f3c88; border-radius: 10px; padding: 20px; text-align: center; background: #f8faff; margin: 20px 0; transition: all 0.3s; }
+        #pdfUpload:hover { background: #e8f0fe; }
+        #pdfUpload.dragover { background: #1f3c88 !important; color: white; }
+        button { background: linear-gradient(90deg, #1f3c88, #2a5298); color: white; padding: 15px 30px; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: bold; transition: transform 0.2s; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(31,60,136,0.4); }
+        #status { margin: 20px 0; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 16px; }
+        .status-loading { background: #fff3cd; border-left: 5px solid #ffc107; }
+        .status-success { background: #d4edda; border-left: 5px solid #28a745; }
+        .status-error { background: #f8d7da; border-left: 5px solid #dc3545; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: linear-gradient(90deg, #1f3c88, #2a5298); color: white; font-weight: bold; }
+        .score-excellent { background: linear-gradient(90deg, #d4edda, #c3e6cb); }
+        .score-good { background: linear-gradient(90deg, #fff3cd, #ffeaa7); }
+        .score-poor { background: linear-gradient(90deg, #f8d7da, #f7b7b7); }
+        .comments { background: #f8f9ff; padding: 20px; border-radius: 10px; border-left: 5px solid #1f3c88; margin: 20px 0; }
+        #result { display: none; animation: slideIn 0.5s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        footer { text-align: center; padding: 25px; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
-
-<!-- FIXED: Explicit worker setup BEFORE any PDF.js usage -->
 <script>
-// ✅ CRITICAL FIX: Set worker BEFORE pdf.min.js loads
-window.pdfjsWorker = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-</script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
-<script>
-// ✅ FIXED: Wait for PDF.js to fully load
-window.addEventListener('load', function() {
-    // Double-check library loaded
-    if (typeof pdfjsLib === 'undefined') {
-        document.getElementById('status').innerHTML = '❌ PDF.js failed to load. Try refresh or Chrome.';
-        return;
-    }
-    
-    // Set worker (redundant safety)
-    pdfjsLib.GlobalWorkerOptions.workerSrc = window.pdfjsWorker;
-    console.log('✅ PDF.js loaded:', pdfjsLib.version);
-});
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
 
 <header>
-    <h1>🧪 AI Research Paper Evaluator (100 pts)</h1>
-    <p>FIXED | M.Sc Chemistry | Plagiarism/Novelty/H-Index | Text PDFs Only</p>
+    <h1>🎓 Advanced Chemistry Paper Evaluator</h1>
+    <p>M.Sc Research | IMRAD + H-Index Proxy + Academic Rigor Analysis | 120 Points</p>
 </header>
 
 <div class="container">
-    <h2>Upload Journal Paper (.pdf)</h2>
-    <input type="file" id="pdfUpload" accept="application/pdf">
-    <button onclick="evaluatePaper()">🤖 Evaluate Paper</button>
+    <h2>📤 Upload Chemistry Journal Paper</h2>
+    <div id="pdfUpload">
+        <p>🖱️ Click or drag PDF here (Scopus/SciFinder text PDFs work best)</p>
+        <input type="file" id="pdfInput" accept="application/pdf" style="display:none">
+    </div>
+    <button onclick="evaluatePaper()">🚀 Comprehensive Academic Evaluation</button>
     
-    <div id="status">Ready! Use text-selectable PDF (Ctrl+A works inside).</div>
+    <div id="status"></div>
     <div id="result"></div>
 </div>
 
-<footer>© 2026 Monika Kannan | Powered by PDF.js v3.11 (Fixed)</footer>
+<footer>© 2026 Monika Kannan | MSc Chemistry Research Assessment Toolkit</footer>
 
 <script>
+document.getElementById('pdfUpload').addEventListener('click', () => document.getElementById('pdfInput').click());
+document.getElementById('pdfInput').addEventListener('change', (e) => {
+    document.getElementById('pdfUpload').innerHTML = `📄 ${e.target.files[0]?.name || 'No file'} loaded`;
+});
+
 async function evaluatePaper() {
-    const fileInput = document.getElementById("pdfUpload");
+    const fileInput = document.getElementById("pdfInput");
     const file = fileInput.files[0];
     const status = document.getElementById("status");
     const result = document.getElementById("result");
     
-    if (!file) {
-        status.innerHTML = '<span style="color:orange">⚠️ Select PDF first</span>';
-        return;
-    }
+    if (!file) return status.className = 'status-error', status.innerHTML = '❌ Please upload a PDF first';
     
-    if (typeof pdfjsLib === 'undefined') {
-        status.innerHTML = '<span style="color:red">❌ PDF.js not ready. Refresh page.</span>';
-        return;
-    }
-    
-    status.innerHTML = '📄 Loading PDF...';
+    status.className = 'status-loading';
+    status.innerHTML = '📖 Extracting full text...';
     result.style.display = 'none';
     
     try {
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
         let fullText = '';
         
-        status.innerHTML = `📖 Extracting ${Math.min(10, pdf.numPages)} pages...`;
-        
-        // Extract text (first 10 pages)
-        for (let i = 1; i <= Math.min(10, pdf.numPages); i++) {
+        for (let i = 1; i <= Math.min(15, pdf.numPages); i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
-            fullText += textContent.items.map(item => item.str).join(' ') + ' ';
+            fullText += textContent.items.map(item => item.str).join(' ') + '\n';
         }
         
-        if (fullText.trim().length < 100) {
-            throw new Error('No text extracted - use searchable PDF (not scanned image)');
-        }
+        if (fullText.trim().length < 200) throw new Error('No extractable text - use searchable PDF');
         
         const textLower = fullText.toLowerCase();
-        status.innerHTML = '🤖 AI Scoring...';
+        status.innerHTML = '🎯 Running 10-criteria academic analysis...';
         
-        // 100 PT ANALYSIS (chemistry-optimized)
-        const abstractMatch = fullText.match(/abstract[:\s]*([\s\S]*?)(?=1\s+|introduction|methods|\n[A-Z]{3,})/i);
-        let abstractScore = abstractMatch ? Math.min(15, Math.floor(abstractMatch[1].trim().split(/\s+/).length / 10)) : 0;
+        // ========== ADVANCED 120 PT SCORING ==========
         
-        const methodKeywords = ['methodology','materials','synthesis','characterization','uv-vis','xrd','ftir','nmr','electrochemistry'];
-        const methodHits = methodKeywords.filter(kw => textLower.includes(kw)).length;
-        let methodologyScore = Math.min(20, methodHits * 2.5);
+        // 1. Proper Referencing (12 pts)
+        const refPatterns = /\[[0-9]+\]/g, refCount = (fullText.match(refPatterns) || []).length;
+        const refScore = Math.min(12, Math.floor(refCount / 1.5));
         
-        const citations = (fullText.match(/\[[0-9]+\]/g) || []).length;
-        let citationScore = Math.min(15, Math.floor(citations / 2));
+        // 2. IMRAD Structure (12 pts)
+        const imradSections = {
+            intro: textLower.includes('introduction'),
+            methods: ['method', 'materials', 'procedure'].some(kw => textLower.includes(kw)),
+            results: textLower.includes('results') || textLower.includes('result'),
+            discussion: textLower.includes('discussion')
+        };
+        const imradScore = Object.values(imradSections).filter(Boolean).length * 3;
         
-        const noveltyKeywords = ['novel','innovative','first','new method','biochar','nanocomposite','doped zno'];
-        const noveltyHits = noveltyKeywords.filter(kw => textLower.includes(kw)).length;
-        let noveltyScore = Math.min(20, noveltyHits * 2.5);
+        // 3. Abstract (12 pts)
+        const absMatch = fullText.match(/abstract[:\s]*([\s\S]*?)(?=1\s+|introduction|\n[A-Z]{4,})/i);
+        const absScore = absMatch ? Math.min(12, Math.floor((absMatch[1].trim().split(/\s+/).length || 0) / 12)) : 0;
         
+        // 4. Literature Review (12 pts)
+        const litKeywords = ['review', 'literature', 'previous work', 'prior studies', 'recent studies'];
+        const litScore = Math.min(12, litKeywords.filter(kw => textLower.includes(kw)).length * 2.5);
+        
+        // 5. Methodological Rigor (15 pts) - Chemistry specific
+        const methodKeywords = ['methodology', 'synthesis', 'characterization', 'uv-vis', 'xrd', 'ftir', 'nmr', 'sem', 'tem', 'tga'];
+        const methodScore = Math.min(15, methodKeywords.filter(kw => textLower.includes(kw)).length * 1.8);
+        
+        // 6. Writing Quality (10 pts) - Proxy via vocabulary
         const words = fullText.split(/\W+/).filter(w => w.length > 4);
         const uniqueWords = new Set(words.map(w => w.toLowerCase()));
-        let plagiarismScore = Math.min(15, Math.floor((uniqueWords.size / 200) * 15)); // High diversity = low plagiarism
+        const writingScore = Math.min(10, Math.floor((uniqueWords.size / 100) * 10));
         
-        let doiScore = (fullText.match(/10\.[0-9]{4,}/) || file.name.match(/10\.[0-9]{4,}/)) ? 10 : 2;
-        let hIndexScore = textLower.includes('h-index') || textLower.includes('scopus') ? 5 : 0;
+        // 7. Logical Organization (10 pts)
+        const orgKeywords = ['figure', 'table', 'equation', 'scheme', 'graph', 'data'];
+        const orgScore = Math.min(10, orgKeywords.filter(kw => textLower.includes(kw)).length * 1.8);
         
-        const totalScore = abstractScore + methodologyScore + citationScore + noveltyScore + plagiarismScore + doiScore + hIndexScore;
+        // 8. Novelty (12 pts)
+        const noveltyKeywords = ['novel', 'first', 'innovative', 'new approach', 'unprecedented', 'biochar', 'nanocomposite'];
+        const noveltyScore = Math.min(12, noveltyKeywords.filter(kw => textLower.includes(kw)).length * 1.8);
         
-        // Results table
+        // 9. Journal Quality Proxy (10 pts)
+        const doiScore = (fullText.match(/10\.[0-9]{4,}/) || file.name.match(/10\.[0-9]{4,}/)) ? 8 : 2;
+        const journalScore = /acs|elsevier|rsc|wiley|nature|science/i.test(file.name) ? doiScore + 2 : doiScore;
+        
+        // 10. H-Index/Citation Proxy (15 pts)
+        const authorMetrics = textLower.includes('h-index') || textLower.includes('scopus') || textLower.includes('web of science') || textLower.includes('citations');
+        const hIndexScore = authorMetrics ? 12 : (refCount > 20 ? 8 : 0);
+        
+        const totalScore = refScore + imradScore + absScore + litScore + methodScore + writingScore + orgScore + noveltyScore + journalScore + hIndexScore;
+        
+        // ========== PAPER COMMENT GENERATION ==========
+        let comments = [];
+        if (totalScore >= 100) comments.push("🏆 Excellent manuscript suitable for high-impact journals");
+        else if (totalScore >= 85) comments.push("✅ Strong paper - minor revisions recommended");
+        else if (totalScore >= 70) comments.push("📈 Good quality - address methodology and novelty claims");
+        else comments.push("⚠️ Needs significant revision before journal submission");
+        
+        if (methodScore < 8) comments.push("🔬 Enhance experimental details (spectroscopy methods, characterization techniques)");
+        if (noveltyScore < 6) comments.push("💡 Strengthen novelty claims with literature comparison");
+        if (imradScore < 9) comments.push("📑 Improve IMRAD structure clarity");
+        if (refScore < 8) comments.push("📚 Expand reference list (aim for 25-40 citations)");
+        
         result.innerHTML = `
-            <h3>🎯 Final Score: <strong>${Math.round(totalScore)}/100</strong> ${totalScore >= 80 ? '🟢 Excellent' : totalScore >= 60 ? '🟡 Good' : '🔴 Revise'}</h3>
+            <h2>📊 Academic Scorecard: ${Math.round(totalScore)}/120</h2>
             <table>
-                <tr><th>Criteria</th><th>Score</th><th>Details</th></tr>
-                <tr class="${totalScore >= 80 ? 'good' : 'warn'}"><td>📝 Abstract</td><td>${abstractScore}/15</td><td>${abstractMatch ? '✅ Detected' : '❌ Missing'}</td></tr>
-                <tr class="${methodologyScore >= 15 ? 'good' : 'warn'}"><td>🔬 Methodology</td><td>${methodologyScore}/20</td><td>${methodHits} chemistry terms</td></tr>
-                <tr><td>📚 Citations</td><td>${citationScore}/15</td><td>${citations} found</td></tr>
-                <tr><td>💡 Novelty</td><td>${noveltyScore}/20</td><td>${noveltyHits} unique terms</td></tr>
-                <tr><td>🛡️ Plagiarism</td><td>${plagiarismScore}/15</td><td>${Math.round(uniqueWords.size/10)*10} unique words</td></tr>
-                <tr><td>🏛️ Journal</td><td>${doiScore}/10</td><td>${doiScore === 10 ? '✅ DOI detected' : 'No DOI'}</td></tr>
-                <tr><td>👨‍🔬 H-Index</td><td>${hIndexScore}/5</td><td>${hIndexScore ? '✅ Mentioned' : 'Not found'}</td></tr>
+                <tr><th>Criteria</th><th>Score</th><th>Max</th><th>Assessment</th></tr>
+                <tr class="${totalScore>=100?'score-excellent':'score-good'}"><td>📚 Proper Referencing</td><td>${refScore}</td><td>12</td><td>${refCount} citations detected</td></tr>
+                <tr><td>📑 IMRAD Structure</td><td>${imradScore}</td><td>12</td><td>${Object.keys(imradSections).filter(k=>imradSections[k]).join(', ')}</td></tr>
+                <tr><td>📝 Abstract Quality</td><td>${absScore}</td><td>12</td><td>${absMatch?'✅ Found':'❌ Missing'}</td></tr>
+                <tr><td>📖 Literature Review</td><td>${litScore}</td><td>12</td><td>${litKeywords.filter(kw=>textLower.includes(kw)).length} indicators</td></tr>
+                <tr class="${methodScore>=12?'score-excellent':methodScore>=8?'score-good':'score-poor'}"><td>🔬 Methodological Rigor</td><td>${methodScore}</td><td>15</td><td>${methodKeywords.filter(kw=>textLower.includes(kw)).slice(0,3).join(', ')}</td></tr>
+                <tr><td>✍️ Writing Quality</td><td>${writingScore}</td><td>10</td><td>${Math.round(uniqueWords.size/50)*50} unique words</td></tr>
+                <tr><td>📊 Organization</td><td>${orgScore}</td><td>10</td><td>${orgKeywords.filter(kw=>textLower.includes(kw)).length} visual elements</td></tr>
+                <tr><td>💡 Novelty</td><td>${noveltyScore}</td><td>12</td><td>${noveltyKeywords.filter(kw=>textLower.includes(kw)).slice(0,3).join(', ')}</td></tr>
+                <tr><td>🏛️ Journal Quality</td><td>${journalScore}</td><td>10</td><td>${doiScore==10?'✅ DOI detected':''}</td></tr>
+                <tr class="${hIndexScore>=10?'score-excellent':'score-good'}"><td>📈 H-Index Proxy</td><td>${hIndexScore}</td><td>15</td><td>${authorMetrics?'Author metrics mentioned':'Citation volume'}</td></tr>
+                <tr><th>TOTAL</th><th>${Math.round(totalScore)}</th><th>120</th><th>${totalScore>=100?'🎓 Outstanding':totalScore>=85?'✅ Excellent':'📈 Revise'}</th></tr>
             </table>
-            <p><small>✅ FIXED PDF.js | Chemistry-focused | First 10 pages | Text PDFs only</small></p>
+            
+            <div class="comments">
+                <h3>💬 Paper Assessment:</h3>
+                ${comments.map(c => `<p>• ${c}</p>`).join('')}
+            </div>
+            <p><em>Analyzed ${Math.min(15,pdf.numPages)} pages | Chemistry-optimized | Scopus/SciFinder PDFs recommended</em></p>
         `;
+        
         result.style.display = 'block';
-        status.innerHTML = `✅ Analysis complete! ${Math.round(fullText.length/1000)}KB text processed.`;
+        status.className = 'status-success';
+        status.innerHTML = `✅ Complete! ${Math.round(fullText.length/1000)}KB analyzed | ${Math.round(totalScore)}/120`;
         
     } catch (error) {
-        status.innerHTML = `<span style="color:red">❌ ${error.message}</span><br><small>F12 console for details. Try: Ctrl+A selects text in PDF preview.</small>`;
-        console.error('PDF Error:', error);
+        status.className = 'status-error';
+        status.innerHTML = `❌ Error: ${error.message}<br><small>Tip: Use "Save as PDF" from browser preview or SciFinder export</small>`;
+        console.error(error);
     }
 }
 </script>
