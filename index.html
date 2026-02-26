@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>🎓 Advanced Chemistry Paper Evaluator v2.1 (FIXED)</title>
+    <title>🎓 Advanced Chemistry Paper Evaluator v2.2 - Journal Detection</title>
     <style>
         * { box-sizing: border-box; }
         body { 
@@ -96,6 +96,8 @@
         .score-excellent { background: linear-gradient(90deg, #d4edda, #c3e6cb); }
         .score-good { background: linear-gradient(90deg, #fff3cd, #ffeaa7); }
         .score-poor { background: linear-gradient(90deg, #f8d7da, #f7b7b7); }
+        .journal-elite { background: linear-gradient(90deg, #28a745, #20c997) !important; color: white; font-weight: bold; }
+        .journal-predatory { background: linear-gradient(90deg, #dc3545, #fd7e14) !important; color: white; font-weight: bold; }
         .comments { 
             background: #f8f9ff; 
             padding: 20px; 
@@ -115,8 +117,8 @@
 <body>
 
 <header>
-    <h1>🎓 Advanced Chemistry Paper Evaluator v2.1</h1>
-    <p>FIXED | M.Sc Research | IMRAD + Academic Rigor | 120 Points</p>
+    <h1>🎓 Chemistry Paper Evaluator v2.2</h1>
+    <p>🆕 Journal Detection | Standard vs Predatory | 120 Points | MSc Research</p>
 </header>
 
 <div class="container">
@@ -125,7 +127,7 @@
     <div id="pdfUploadArea" onclick="document.getElementById('fileInput').click()">
         <p>🖱️ Click or drag searchable PDF here</p>
         <p style="font-size: 14px; color: #666; margin-top: 10px;">
-            Scopus/SciFinder PDFs work best (Ctrl+A selects text inside)
+            JACS/Angewandte/Springer = 🟢Elite | ijirt/ijrar = 🔴Predatory
         </p>
         <input type="file" id="fileInput" accept="application/pdf">
         <div id="fileNameDisplay"></div>
@@ -139,14 +141,27 @@
     <div id="result"></div>
 </div>
 
-<footer>© 2026 Monika Kannan | MSc Chemistry Research Toolkit | FIXED v2.1</footer>
+<footer>© 2026 Monika Kannan | MSc Chemistry | v2.2 Journal Detection Added</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-    // ✅ FIXED: Worker setup immediately after PDF.js loads
+    // ✅ Worker setup
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     
-    // Drag & drop handlers
+    // 🆕 STANDARD vs PREDATORY JOURNAL DATABASE
+    const ELITE_JOURNALS = [
+        'springer', 'wiley', 'elsevier', 'acs', 'rsc', 'nature', 'cell',
+        'jacs', 'j. am. chem. soc.', 'angewandte', 'angew. chem.', 
+        'chemical science', 'nature chemistry', 'chem', 'j. am. chem.',
+        'angewandte chemie', 'chem. sci.', 'jacs', 'adv. mater.'
+    ];
+    
+    const PREDATORY_KEYWORDS = [
+        'ijirt', 'ijrar', 'impactfactor', 'sjif', 'cosmos', 'conferenceworld', 
+        'biomed', 'scitechnol', 'omkarcollege', 'jets', 'irjp'
+    ];
+    
+    // Drag & drop handlers (unchanged)
     const uploadArea = document.getElementById('pdfUploadArea');
     const fileInput = document.getElementById('fileInput');
     const fileNameDisplay = document.getElementById('fileNameDisplay');
@@ -194,7 +209,7 @@
         }
     }
     
-    // ✅ MAIN EVALUATION FUNCTION - FIXED
+    // ✅ MAIN EVALUATION FUNCTION - WITH JOURNAL DETECTION
     async function evaluatePaper() {
         const file = fileInput.files[0];
         const status = document.getElementById('status');
@@ -206,14 +221,12 @@
             return;
         }
         
-        // Disable button during processing
         evaluateBtn.disabled = true;
         evaluateBtn.textContent = '⏳ Analyzing...';
         result.style.display = 'none';
         showStatus('📖 Extracting text from PDF...', 'status-loading');
         
         try {
-            // ✅ FIXED PDF.js loading
             const arrayBuffer = await file.arrayBuffer();
             const loadingTask = pdfjsLib.getDocument(arrayBuffer);
             const pdf = await loadingTask.promise;
@@ -234,16 +247,46 @@
                 throw new Error('No extractable text found. Use searchable PDF (not scanned image).');
             }
             
-            showStatus('🎯 Running academic analysis...', 'status-loading');
+            showStatus('🎯 Running academic analysis + journal detection...', 'status-loading');
             
-            // ========== 120 PT ACADEMIC SCORING ==========
             const textLower = fullText.toLowerCase();
+            const fileNameLower = file.name.toLowerCase();
             
-            // 1. Referencing (12 pts)
+            // ========== 🆕 JOURNAL QUALITY SCORING (15 pts) ==========
+            let journalScore = 0;
+            let journalClass = 'score-poor';
+            let journalStatus = 'Unknown';
+            
+            // Check PREDATORY first (LOW SCORE: 2 pts)
+            const isPredatory = PREDATORY_KEYWORDS.some(kw => fileNameLower.includes(kw.toLowerCase()));
+            if (isPredatory) {
+                journalScore = 2;
+                journalClass = 'journal-predatory';
+                journalStatus = '🚨 PREDATORY JOURNAL DETECTED';
+            } 
+            // Check ELITE/STANDARD JOURNALS (HIGH SCORE: 12-15 pts)
+            else if (ELITE_JOURNALS.some(journal => 
+                fileNameLower.includes(journal.toLowerCase()) || 
+                textLower.includes(journal.toLowerCase()))) {
+                journalScore = 15;
+                journalClass = 'journal-elite';
+                journalStatus = '🏆 ELITE JOURNAL (JACS/Springer/Wiley)';
+            }
+            // DOI + reputable (MEDIUM: 8-10 pts)
+            else if (fullText.match(/10\.[0-9]{4,}/)) {
+                journalScore = 10;
+                journalClass = 'score-excellent';
+                journalStatus = '✅ Reputable (DOI detected)';
+            }
+            else {
+                journalScore = 5;
+                journalStatus = '⚠️ Unknown publisher - verify quality';
+            }
+            
+            // ========== EXISTING 120 PT SCORING (adjusted) ==========
             const refCount = (fullText.match(/\[[0-9]+\]/g) || []).length;
             const refScore = Math.min(12, Math.floor(refCount / 1.5));
             
-            // 2. IMRAD Structure (12 pts)
             const imrad = {
                 intro: textLower.includes('introduction'),
                 methods: ['method', 'materials', 'procedure'].some(kw => textLower.includes(kw)),
@@ -252,54 +295,48 @@
             };
             const imradScore = Object.values(imrad).filter(Boolean).length * 3;
             
-            // 3. Abstract (12 pts)
             const absMatch = fullText.match(/abstract[:\s]*([\s\S]*?)(?=1\s+|introduction|\n[A-Z]{4,})/i);
             const absWords = absMatch ? absMatch[1].trim().split(/\s+/).length : 0;
             const absScore = absWords > 120 ? 12 : absWords > 80 ? 9 : absWords > 50 ? 6 : 0;
             
-            // 4. Literature Review (12 pts)
             const litKeywords = ['review', 'literature', 'previous', 'prior studies'];
             const litScore = Math.min(12, litKeywords.filter(kw => textLower.includes(kw)).length * 3);
             
-            // 5. Chemistry Methods (15 pts)
             const chemMethods = ['uv-vis', 'xrd', 'ftir', 'nmr', 'sem', 'tem', 'tga', 'synthesis'];
             const methodScore = Math.min(15, chemMethods.filter(kw => textLower.includes(kw)).length * 2);
             
-            // 6. Writing Quality (10 pts)
             const uniqueWords = new Set(fullText.split(/\W+/).filter(w => w.length > 4).map(w => w.toLowerCase()));
             const writingScore = Math.min(10, Math.floor(uniqueWords.size / 80));
             
-            // 7. Organization (10 pts)
             const orgKeywords = ['figure', 'table', 'scheme', 'equation'];
             const orgScore = Math.min(10, orgKeywords.filter(kw => textLower.includes(kw)).length * 2.5);
             
-            // 8. Novelty (12 pts)
             const noveltyKeywords = ['novel', 'first', 'innovative', 'biochar', 'nanocomposite'];
             const noveltyScore = Math.min(12, noveltyKeywords.filter(kw => textLower.includes(kw)).length * 2);
             
-            // 9. Journal Quality (10 pts)
-            const hasDOI = fullText.match(/10\.[0-9]{4,}/) || file.name.match(/10\.[0-9]{4,}/);
-            const journalScore = hasDOI ? 10 : 4;
-            
-            // 10. H-Index Proxy (15 pts)
             const hIndexScore = textLower.includes('h-index') || textLower.includes('scopus') || refCount > 25 ? 12 : 6;
             
-            const totalScore = refScore + imradScore + absScore + litScore + methodScore + writingScore + orgScore + noveltyScore + journalScore + hIndexScore;
+            // TOTAL: 120 points (Journal now 15 pts instead of 10)
+            const totalScore = refScore + imradScore + absScore + litScore + methodScore + 
+                             writingScore + orgScore + noveltyScore + journalScore + hIndexScore;
             
-            // Generate comments
+            // 🆕 Enhanced comments with journal feedback
             const comments = [
-                totalScore >= 100 ? '🏆 Outstanding - High-impact journal ready' : 
-                totalScore >= 85 ? '✅ Excellent - Minor revisions needed' : 
-                totalScore >= 70 ? '📈 Good - Strengthen methods/novelty' : '⚠️ Needs major revision'
+                totalScore >= 100 ? '🏆 Outstanding manuscript - High-impact ready' : 
+                totalScore >= 85 ? '✅ Excellent quality - Minor revisions' : 
+                totalScore >= 70 ? '📈 Good paper - Strengthen methods' : '⚠️ Major revisions needed'
             ];
             
-            if (methodScore < 10) comments.push('🔬 Add detailed characterization (UV-Vis, XRD, etc.)');
-            if (noveltyScore < 6) comments.push('💡 Strengthen novelty with literature comparison');
+            if (isPredatory) comments.unshift('🚨 CRITICAL: WITHDRAW FROM PREDATORY JOURNAL IMMEDIATELY');
+            if (journalScore >= 12) comments.push('📚 Excellent journal choice - Perfect for MSc portfolio');
+            if (methodScore < 10) comments.push('🔬 Enhance characterization (UV-Vis, XRD, FTIR)');
             
             showResult(totalScore, {
                 refScore, imradScore, absScore, litScore, methodScore, 
                 writingScore, orgScore, noveltyScore, journalScore, hIndexScore,
-                refCount, absWords, imrad, chemMethods: chemMethods.filter(kw => textLower.includes(kw)).slice(0,3),
+                journalStatus, journalClass, isPredatory,
+                refCount, absWords, imrad, 
+                chemMethods: chemMethods.filter(kw => textLower.includes(kw)).slice(0,3),
                 uniqueWords: uniqueWords.size
             }, comments);
             
@@ -325,17 +362,22 @@
             <h2>📊 Final Score: ${Math.round(totalScore)}/120</h2>
             <table>
                 <tr><th>Criteria</th><th>Score</th><th>Max</th><th>Details</th></tr>
+                <tr class="${scores.journalClass}">
+                    <td>🏛️ Journal Quality</td><td>${scores.journalScore}</td><td>15</td><td><strong>${scores.journalStatus}</strong></td>
+                </tr>
                 <tr class="${totalScore>=100?'score-excellent':'score-good'}"><td>📚 Referencing</td><td>${scores.refScore}</td><td>12</td><td>${scores.refCount} citations</td></tr>
                 <tr><td>📑 IMRAD Structure</td><td>${scores.imradScore}</td><td>12</td><td>${Object.keys(scores.imrad).filter(k=>scores.imrad[k]).join(', ')}</td></tr>
                 <tr><td>📝 Abstract</td><td>${scores.absScore}</td><td>12</td><td>${scores.absWords} words</td></tr>
-                <tr><td>📖 Literature Review</td><td>${scores.litScore}</td><td>12</td><td>Lit review detected</td></tr>
-                <tr class="${scores.methodScore>=12?'score-excellent':'score-good'}"><td>🔬 Chemistry Methods</td><td>${scores.methodScore}</td><td>15</td><td>${scores.chemMethods.join(', ')}</td></tr>
+                <tr><td>📖 Literature Review</td><td>${scores.litScore}</td><td>12</td><td>Lit review indicators</td></tr>
+                <tr class="${scores.methodScore>=12?'score-excellent':'score-good'}">
+                    <td>🔬 Chemistry Methods</td><td>${scores.methodScore}</td><td>15</td><td>${scores.chemMethods.join(', ') || 'None detected'}</td>
+                </tr>
                 <tr><td>✍️ Writing Quality</td><td>${scores.writingScore}</td><td>10</td><td>${scores.uniqueWords} unique words</td></tr>
                 <tr><td>📊 Organization</td><td>${scores.orgScore}</td><td>10</td><td>Figures/tables found</td></tr>
-                <tr><td>💡 Novelty</td><td>${scores.noveltyScore}</td><td>12</td><td>Innovation terms detected</td></tr>
-                <tr><td>🏛️ Journal Quality</td><td>${scores.journalScore}</td><td>10</td><td>${scores.journalScore==10?'DOI found':''}</td></tr>
-                <tr><td>📈 H-Index Proxy</td><td>${scores.hIndexScore}</td><td>15</td><td>Author metrics/citation vol</td></tr>
-                <tr><th>TOTAL</th><th>${Math.round(totalScore)}</th><th>120</th><th>${totalScore>=100?'🎓 Outstanding':totalScore>=85?'✅ Excellent':'📈 Good'}</th></tr>
+                <tr><td>💡 Novelty</td><td>${scores.noveltyScore}</td><td>12</td><td>Innovation terms</td></tr>
+                <tr><td>📈 H-Index Proxy</td><td>${scores.hIndexScore}</td><td>12</td><td>Author metrics</td></tr>
+                <tr><th>TOTAL</th><th>${Math.round(totalScore)}</th><th>120</th>
+                    <th>${totalScore>=100?'🎓 Outstanding':totalScore>=85?'✅ Excellent':'📈 Revise'}</th></tr>
             </table>
             <div class="comments">
                 <h3>💬 Reviewer Comments:</h3>
@@ -343,7 +385,7 @@
             </div>
         `;
         result.style.display = 'block';
-        showStatus(`✅ Analysis complete! ${Math.round(totalScore)}/120`, 'status-success');
+        showStatus(`✅ Analysis complete! ${Math.round(totalScore)}/120 | Journal: ${scores.journalStatus}`, 'status-success');
     }
 </script>
 
